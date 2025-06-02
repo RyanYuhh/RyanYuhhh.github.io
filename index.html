@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YouTube Background Player</title>
+  <style>
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(1); }
+      50% { transform: translate(-50%, -50%) scale(1.05); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+    .yt-bg {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+    }
+    .clickable {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body style="margin:0; height:100vh; overflow:hidden; background:#000;">
+  <div id="player" style="position:fixed; top:0; left:0; width:100vw; height:100vh; z-index:-1;"></div>
+  <div id="animated-text" class="clickable" 
+       style="position:fixed; top:15%; left:50%; transform:translate(-50%,0);
+              font-size:36px; font-family:sans-serif; font-weight:bold; text-align:center;
+              max-width:60vw; padding-right:320px; color:hsl(0,100%,50%);
+              text-shadow: 0 0 20px hsl(0,100%,50%)">
+  </div>
+  <img id="animated-img" alt="Thumbnail" 
+       style="position:fixed; top:10%; right:20px; width:300px; border:4px solid white;
+              border-radius:10px; animation:pulse 2s infinite" />
+  <div id="instruction-text" 
+       style="position:fixed; bottom:10%; left:50%; transform:translateX(-50%);
+              color:white; font-family:sans-serif; font-size:18px; background:rgba(0,0,0,0.5);
+              padding:8px 12px; border-radius:6px; cursor:pointer; z-index:10;">
+    Click anywhere to enable audio
+  </div>
+  <div id="button-container" 
+       style="position:fixed; top:50%; right:20px; transform:translateY(-50%);
+              display:flex; flex-direction:column; gap:12px; z-index:20;">
+  </div>
+
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script>
+    // Video data
+    const videos = [
+      { id: "ZIGgPv8gxVw", label: "Grow a Garden", thumbnail: "https://img.youtube.com/vi/ZIGgPv8gxVw/maxresdefault.jpg" },
+      { id: "eCzyT7a9Yw8", label: "Grow a Garden is overrated", thumbnail: "https://img.youtube.com/vi/eCzyT7a9Yw8/maxresdefault.jpg" },
+      { id: "MwY8ICnV7jo", label: "Grow a Garden SUCKS", thumbnail: "https://img.youtube.com/vi/MwY8ICnV7jo/maxresdefault.jpg" }
+    ];
+
+    let player;
+    let isPaused = false;
+    let isMuted = true;
+    let currentIndex = 0;
+
+    const text = document.getElementById("animated-text");
+    const img = document.getElementById("animated-img");
+    const instruction = document.getElementById("instruction-text");
+    const buttonContainer = document.getElementById("button-container");
+
+    // Animate text color and glow
+    let hue = 0;
+    setInterval(() => {
+      const color = `hsl(${hue}, 100%, 50%)`;
+      text.style.color = color;
+      text.style.textShadow = `0 0 20px ${color}`;
+      hue = (hue + 1) % 360;
+    }, 20);
+
+    // Initialize YouTube player
+    window.onYouTubeIframeAPIReady = function() {
+      player = new YT.Player('player', {
+        videoId: videos[currentIndex].id,
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          loop: 1,
+          playlist: videos[currentIndex].id,
+          mute: 1,
+          modestbranding: 1,
+          iv_load_policy: 3,
+          disablekb: 1,
+          fs: 0,
+          rel: 0
+        },
+        events: {
+          onReady: (event) => {
+            event.target.playVideo();
+            event.target.mute();
+            updateUI();
+          }
+        }
+      });
+    };
+
+    function updateUI() {
+      const video = videos[currentIndex];
+      text.textContent = video.label;
+
+      img.src = ""; // Clear src to force reload
+      setTimeout(() => {
+        img.src = video.thumbnail + "?cb=" + Date.now(); // cache buster
+      }, 10);
+    }
+
+    function enableAudio() {
+      if (!player) return;
+      if (isMuted) {
+        player.unMute();
+        isMuted = false;
+        instruction.textContent = "Click the text to pause/play";
+        window.removeEventListener("click", enableAudio);
+      }
+    }
+
+    window.addEventListener("click", enableAudio);
+
+    text.addEventListener("click", () => {
+      if (!player) return;
+      if (isPaused) {
+        player.playVideo();
+        isPaused = false;
+      } else {
+        player.pauseVideo();
+        isPaused = true;
+      }
+    });
+
+    // Create buttons for each video
+    videos.forEach(({ label, id }, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.style.padding = "10px 16px";
+      btn.style.fontSize = "14px";
+      btn.style.cursor = "pointer";
+      btn.style.borderRadius = "6px";
+      btn.style.border = "none";
+      btn.style.background = "#444";
+      btn.style.color = "white";
+      btn.style.fontFamily = "sans-serif";
+      btn.style.transition = "background-color 0.3s";
+
+      btn.addEventListener("mouseenter", () => btn.style.background = "#666");
+      btn.addEventListener("mouseleave", () => btn.style.background = "#444");
+
+      btn.addEventListener("click", () => {
+        if (!player) return;
+        currentIndex = i;
+        player.loadVideoById(videos[currentIndex].id);
+        if (isMuted) player.mute();
+        else player.unMute();
+        isPaused = false;
+        instruction.textContent = "Click the text to pause/play";
+        updateUI();
+      });
+
+      buttonContainer.appendChild(btn);
+    });
+  </script>
+</body>
+</html>
